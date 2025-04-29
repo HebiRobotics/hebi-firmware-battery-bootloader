@@ -20,51 +20,23 @@ extern "C" {
 void __late_init();
 }
 
-#include "Beep_Controller.h"
 #include "LED_Controller.h"
 #include "Pushbutton_Controller.h"
 #include "drivers/LED_RGB_PWM1.h"
-#include "drivers/Beeper_PWM16.h"
 #include "drivers/Battery_CAN.h"
-#include "drivers/BQ34Z100_I2C.h"
 #include "drivers/Flash_STM32L4.h"
-#include "drivers/power_control.h"
-#include "drivers/COMP_STM32L4.h"
-#include "drivers/ADC_control.h"
 
-#include "battery_node.h"
-
-#include "Driver.h"
-#include <array>
-#include <vector>
+#include "bootloader_node.h"
 
 using namespace hebi::firmware;
 
-
-const static I2CConfig I2C_BATTERY_CONFIG = {
-    0x00000E14, //this is generated using STM32CubeMX
-    0,
-    0
-};
-
-hardware::Beeper_PWM16 beeper_driver(4000 /*4kHz*/);
-modules::Beep_Controller beeper (beeper_driver);
 hardware::LED_RGB_PWM1 rgb_led_driver;
 modules::LED_Controller status_led (rgb_led_driver);
-hardware::COMP_STM32L4 comp;
-hardware::ADC_control adc;
-
 modules::Pushbutton_Controller button (400 /*ms*/, 600 /*ms*/, 200 /*ms*/);
-
 hardware::Flash_STM32L4 database;
-
 hardware::Battery_CAN can;
-hardware::BQ34Z100_I2C battery_i2c(&I2CD1, I2C_BATTERY_CONFIG);
 
-std::vector<hardware::Driver *> drivers{&beeper_driver, &rgb_led_driver, &can, &battery_i2c, &comp, &adc};
-hardware::Power_Control power_ctrl(drivers);
-
-Battery_Node battery_node(database, status_led, button, beeper, can, battery_i2c, power_ctrl);
+Bootloader_Node bootloader_node(database, status_led, button, can);
 
 /**
  * @brief Initializes hal and ChibiOS
@@ -105,13 +77,9 @@ int main(void) {
 
         button.update(palReadLine(LINE_PB_WKUP));
 
-        battery_node.update(comp.output_comp1(), comp.output_comp2(), adc.v_bat(), adc.v_ext());
+        bootloader_node.update();
 
         status_led.update();
-        beeper.update();
-
-        palWriteLine(LINE_DSG_EN, battery_node.dsgEnable());
-        palWriteLine(LINE_CHG_EN, battery_node.chgEnable());
 
         chThdSleepMilliseconds(1);
     }

@@ -62,6 +62,7 @@ void Bootloader_Node::recvd_ctrl_read_info(protocol::ctrl_read_info_msg msg) {
         for(size_t i = 0; i < ind; i++)
             can_driver_.sendMessage(protocol::ctrl_fw_version_msg(node_id_, i, FIRMWARE_REVISION + (i*msg_len)));
     }
+    if(msg.read_FW_mode()) can_driver_.sendMessage(protocol::ctrl_fw_mode_msg(node_id_, true));
 }
 
 void Bootloader_Node::recvd_boot_set_key(protocol::boot_set_key_msg msg) { 

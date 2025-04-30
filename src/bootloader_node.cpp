@@ -22,8 +22,12 @@ Bootloader_Node::Bootloader_Node(hardware::Flash_STM32L4& flash,
 
 void Bootloader_Node::initNodeID(){
     node_id_valid_ = flash_.get(hardware::FlashDatabaseKey::NODE_ID, node_id_);
-    if(!node_id_valid_)
-        node_id_ = protocol::DEFAULT_NODE_ID;
+
+    //temporary...
+    if(!node_id_valid_){
+        node_id_ = 0x01;
+        flash_.put(hardware::FlashDatabaseKey::NODE_ID, node_id_);
+    }
 }
 
 void Bootloader_Node::update() {

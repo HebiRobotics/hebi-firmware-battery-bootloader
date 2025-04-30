@@ -72,6 +72,11 @@ int main(void) {
     // }
 
     rgb_led_driver.setColor(255,0,0);
+    status_led.teal().fade();
+
+    //temporary
+    palWriteLine(LINE_DSG_EN, true);
+    palWriteLine(LINE_CHG_EN, true);
 
     while (true) {
 

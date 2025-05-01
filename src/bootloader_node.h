@@ -31,7 +31,7 @@ public:
 
     void update();
 
-    void addTxMessage(protocol::base_msg msg) {
+    void addTxMessage(protocol::base_msg& msg) {
         if(!node_id_valid_) return;
 
         can_driver_.sendMessage(msg);
@@ -44,16 +44,16 @@ public:
 protected:
     void initNodeID();
 
-    void recvd_ctrl_poll_node_id(protocol::ctrl_poll_node_id_msg msg) override;
-    void recvd_ctrl_read_info(protocol::ctrl_read_info_msg msg) override;
+    void recvd_ctrl_poll_node_id(protocol::ctrl_poll_node_id_msg& msg) override;
+    void recvd_ctrl_read_info(protocol::ctrl_read_info_msg& msg) override;
 
-    void recvd_boot_set_key(protocol::boot_set_key_msg msg) override;
-    void recvd_boot_partition_length(protocol::boot_partition_length_msg msg) override;
-    void recvd_boot_read(protocol::boot_read_msg msg) override;
-    void recvd_boot_write(protocol::boot_write_msg msg) override;
-    void recvd_boot_write_data(protocol::boot_write_data_msg msg) override;
-    void recvd_boot_write_end(protocol::boot_write_end_msg msg) override;
-    void recvd_boot_erase(protocol::boot_erase_msg msg) override;
+    void recvd_boot_set_key(protocol::boot_set_key_msg& msg) override;
+    void recvd_boot_partition_length(protocol::boot_partition_length_msg& msg) override;
+    void recvd_boot_read(protocol::boot_read_msg& msg) override;
+    void recvd_boot_write(protocol::boot_write_msg& msg) override;
+    void recvd_boot_write_data(protocol::boot_write_data_msg& msg) override;
+    void recvd_boot_write_end(protocol::boot_write_end_msg& msg) override;
+    void recvd_boot_erase(protocol::boot_erase_msg& msg) override;
 
 
     bool node_id_valid_ {false};

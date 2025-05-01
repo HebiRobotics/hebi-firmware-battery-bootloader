@@ -44,16 +44,21 @@ void Bootloader_Node::update() {
         }
 
     }
+
+    // can_driver_.sendMessage(protocol::ctrl_poll_node_id_msg(node_id_));
+    // can_driver_.sendMessage(protocol::ctrl_poll_node_id_msg(node_id_));
+    // can_driver_.sendMessage(protocol::ctrl_poll_node_id_msg(node_id_));
+    // can_driver_.sendMessage(protocol::ctrl_poll_node_id_msg(node_id_));
 }
 
-void Bootloader_Node::recvd_ctrl_poll_node_id(protocol::ctrl_poll_node_id_msg msg){
+void Bootloader_Node::recvd_ctrl_poll_node_id(protocol::ctrl_poll_node_id_msg& msg){
     //Request must be coming from master node
     if(msg.EID.node_id != 0x00 || node_id_ == protocol::DEFAULT_NODE_ID) return; 
 
     can_driver_.sendMessage(protocol::ctrl_poll_node_id_msg(node_id_));
 }
 
-void Bootloader_Node::recvd_ctrl_read_info(protocol::ctrl_read_info_msg msg) { 
+void Bootloader_Node::recvd_ctrl_read_info(protocol::ctrl_read_info_msg& msg) { 
     if(msg.EID.node_id != node_id_) return;
 
     if(msg.read_GUID()) can_driver_.sendMessage(protocol::ctrl_guid_msg(node_id_, 0, *(uint64_t*)UID_BASE));
@@ -69,7 +74,7 @@ void Bootloader_Node::recvd_ctrl_read_info(protocol::ctrl_read_info_msg msg) {
     if(msg.read_FW_mode()) can_driver_.sendMessage(protocol::ctrl_fw_mode_msg(node_id_, true));
 }
 
-void Bootloader_Node::recvd_boot_set_key(protocol::boot_set_key_msg msg) { 
+void Bootloader_Node::recvd_boot_set_key(protocol::boot_set_key_msg& msg) { 
     if(msg.EID.node_id != node_id_ || msg.index() >= AES_KEY_N_PACKETS) return;
     
     uint8_t offset = msg.index() * protocol::boot_set_key_msg::MSG_LEN_BYTES;
@@ -85,7 +90,7 @@ void Bootloader_Node::recvd_boot_set_key(protocol::boot_set_key_msg msg) {
     }
 }
 
-void Bootloader_Node::recvd_boot_partition_length(protocol::boot_partition_length_msg msg) { 
+void Bootloader_Node::recvd_boot_partition_length(protocol::boot_partition_length_msg& msg) { 
     if(msg.EID.node_id != node_id_) return;
 
     //Get partition size based on ID
@@ -100,7 +105,7 @@ void Bootloader_Node::recvd_boot_partition_length(protocol::boot_partition_lengt
     ));
 }
 
-void Bootloader_Node::recvd_boot_read(protocol::boot_read_msg msg) { 
+void Bootloader_Node::recvd_boot_read(protocol::boot_read_msg& msg) { 
     if(msg.EID.node_id != node_id_) return;
 
     //Error out if a read is active!
@@ -150,7 +155,7 @@ void Bootloader_Node::recvd_boot_read(protocol::boot_read_msg msg) {
     read_active_ = false;
 }
 
-void Bootloader_Node::recvd_boot_write(protocol::boot_write_msg msg) { 
+void Bootloader_Node::recvd_boot_write(protocol::boot_write_msg& msg) { 
     if(msg.EID.node_id != node_id_) return;
 
     //Check for error conditions
@@ -210,7 +215,7 @@ void Bootloader_Node::recvd_boot_write(protocol::boot_write_msg msg) {
     write_active_ = true;
 }
 
-void Bootloader_Node::recvd_boot_write_data(protocol::boot_write_data_msg msg) { 
+void Bootloader_Node::recvd_boot_write_data(protocol::boot_write_data_msg& msg) { 
     if(msg.EID.node_id != node_id_) return;
     
     //Error out if a write isn't active!
@@ -230,7 +235,7 @@ void Bootloader_Node::recvd_boot_write_data(protocol::boot_write_data_msg msg) {
     write_buffer_index_ += boot_write_data_msg::MSG_LEN_BYTES;
 }
 
-void Bootloader_Node::recvd_boot_write_end(protocol::boot_write_end_msg msg) { 
+void Bootloader_Node::recvd_boot_write_end(protocol::boot_write_end_msg& msg) { 
     if(msg.EID.node_id != node_id_) return;
 
     //Error out if a write isn't active!
@@ -354,7 +359,7 @@ void Bootloader_Node::recvd_boot_write_end(protocol::boot_write_end_msg msg) {
     return;
 }
 
-void Bootloader_Node::recvd_boot_erase(protocol::boot_erase_msg msg) { 
+void Bootloader_Node::recvd_boot_erase(protocol::boot_erase_msg& msg) { 
     if(msg.EID.node_id != node_id_) return;
 
     bool success = true;

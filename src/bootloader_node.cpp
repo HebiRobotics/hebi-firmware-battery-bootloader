@@ -183,18 +183,18 @@ void Bootloader_Node::recvd_boot_write(protocol::boot_write_msg& msg) {
         //Reset state
         write_current_offset_ = 0;
 
-        //Erase application on first message
-        auto result = flash_.erase(static_cast<hardware::Flash_STM32L4::Partition>(msg.partition()));
+        // //Erase application on first message
+        // auto result = flash_.erase(static_cast<hardware::Flash_STM32L4::Partition>(msg.partition()));
         
-        //Check for erase error
-        if(result != hardware::Flash_STM32L4::Status::COMPLETE){
-            can_driver_.sendMessage(boot_write_end_msg(
-                node_id_, msg.length(), 
-                msg.sequence_number(), msg.partition(), 
-                status_t::ERROR
-            ));
-            return;
-        }
+        // //Check for erase error
+        // if(result != hardware::Flash_STM32L4::Status::COMPLETE){
+        //     can_driver_.sendMessage(boot_write_end_msg(
+        //         node_id_, msg.length(), 
+        //         msg.sequence_number(), msg.partition(), 
+        //         status_t::ERROR
+        //     ));
+        //     return;
+        // }
 
         // Re-initialize contexts.
         iv_is_set = false;

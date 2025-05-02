@@ -35,7 +35,9 @@ void Bootloader_Node::update() {
     bool msg_recvd = false;
 
     while(has_data){
+        chSysLock();
         auto msg_opt = can_driver_.getMessage();
+        chSysUnlock();
         if(msg_opt.has_value()){
             //Msg_recvd should only be set to true if we receive a valid message from the base node
             msg_recvd |= (tryParseMsg(msg_opt.value()) && msg_opt.value().EID.node_id == 0x00);

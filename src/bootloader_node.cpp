@@ -337,7 +337,6 @@ void Bootloader_Node::recvd_boot_write_end(protocol::boot_write_end_msg& msg) {
             //Erase the application
             flash_.erase(hardware::Flash_STM32L4::Partition::APPLICATION);
             flash_.put(hardware::FlashDatabaseKey::APPLICATION_VALID, false);
-            return;
         }
     }
 
@@ -407,6 +406,18 @@ void Bootloader_Node::recvd_boot_erase(protocol::boot_erase_msg& msg) {
 
     }
 
-    //TODO: return status...
+    if(!success){
+        //Send error response
+        can_driver_.sendMessage(boot_erase_msg(
+            node_id_, msg.partition(), 
+            status_t::ERROR
+        ));
+    } else {
+        //Send success response
+        can_driver_.sendMessage(boot_erase_msg(
+            node_id_, msg.partition(), 
+            status_t::OK
+        ));
+    }
 }
 

@@ -9,7 +9,7 @@
 #include "Flash_STM32L4.h"
 #include "LED_Controller.h"
 #include "Pushbutton_Controller.h"
-#include "Hash.h"
+#include "hash.h"
 
 #include "nodes/base_node.h"
 

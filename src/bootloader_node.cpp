@@ -20,6 +20,7 @@ Bootloader_Node::Bootloader_Node(hardware::Flash_STM32L4& flash,
     initNodeID();
     has_key_ = flash_.get(hardware::FlashDatabaseKey::AES_KEY, aes_key_);
     flash_.get(hardware::FlashDatabaseKey::APPLICATION_HASH, reference_md5);
+    flash_.get(hardware::FlashDatabaseKey::SERIAL_NUMBER, serial_number_);
 }
 
 void Bootloader_Node::initNodeID(){
@@ -79,10 +80,18 @@ void Bootloader_Node::recvd_ctrl_read_info(protocol::ctrl_read_info_msg& msg) {
     if(msg.read_FW_mode()) can_driver_.sendMessage(protocol::ctrl_fw_mode_msg(node_id_, protocol::ctrl_fw_mode_msg::FW_MODE_BOOT));
     if(msg.read_APP_FW_hash()){
         //split into smaller messages
-        uint8_t msg_len = protocol::ctrl_fw_version_msg::MSG_LEN_BYTES;
+        uint8_t msg_len = protocol::ctrl_app_fw_hash_msg::MSG_LEN_BYTES;
         uint8_t N_PACKETS = Hash::MD5_SUM_LEN / msg_len;
         for(size_t i = 0; i < N_PACKETS; i++)
             can_driver_.sendMessage(protocol::ctrl_app_fw_hash_msg(node_id_, i, reference_md5 + (i*msg_len)));
+    }
+    if(msg.read_serial_number()){
+        //split into smaller messages
+        size_t size = strlen((const char*) serial_number_);
+        uint8_t msg_len = protocol::ctrl_serial_num_msg::MSG_LEN_BYTES;
+        uint8_t N_PACKETS = (size / msg_len) + 1;
+        for(size_t i = 0; i < N_PACKETS; i++)
+            can_driver_.sendMessage(protocol::ctrl_serial_num_msg(node_id_, i, serial_number_ + (i*msg_len)));
     }
 }
 
@@ -449,6 +458,23 @@ void Bootloader_Node::recvd_boot_erase(protocol::boot_erase_msg& msg) {
             node_id_, msg.partition(), 
             status_t::OK
         ));
+    }
+}
+
+void Bootloader_Node::recvd_boot_set_serial_num(boot_set_serial_num_msg& msg){
+    if(msg.EID.node_id != node_id_) return;
+
+    uint8_t N_PACKETS = SERIAL_NUM_LEN / protocol::boot_set_serial_num_msg::MSG_LEN_BYTES;
+
+    if(msg.index() >= N_PACKETS) return;
+    
+    uint8_t offset = msg.index() * protocol::boot_set_serial_num_msg::MSG_LEN_BYTES;
+    for (uint8_t ind = 0; ind < SERIAL_NUM_LEN; ind++)
+        serial_number_[ind + offset] = msg.data8[ind];
+    
+    //Controller node should always send n = N_PACKETS!
+    if(msg.index() == (N_PACKETS - 1)){
+        flash_.put(hardware::FlashDatabaseKey::SERIAL_NUMBER, serial_number_);
     }
 }
 

@@ -61,10 +61,14 @@ protected:
     void recvd_boot_write_data(protocol::boot_write_data_msg& msg) override;
     void recvd_boot_write_end(protocol::boot_write_end_msg& msg) override;
     void recvd_boot_erase(protocol::boot_erase_msg& msg) override;
+    void recvd_boot_set_serial_num(protocol::boot_set_serial_num_msg& msg) override;
 
     bool boot_requested_ {false};
     bool node_id_valid_ {false};
     uint8_t node_id_ { protocol::DEFAULT_NODE_ID };
+
+    static const uint8_t SERIAL_NUM_LEN = 16;
+    uint8_t serial_number_[SERIAL_NUM_LEN];
 
     static const uint16_t MAX_TRANSACTION_LEN = 2048;
     bool read_active_ {false};

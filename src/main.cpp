@@ -17,7 +17,11 @@
 extern "C" {
 #include <ch.h>
 #include <hal.h>
+#include <cstring>
+
 void __late_init();
+
+#include "boot_ctrl.h"
 }
 
 #include "LED_Controller.h"
@@ -33,10 +37,10 @@ using namespace hebi::firmware;
 hardware::LED_RGB_PWM1 rgb_led_driver;
 modules::LED_Controller status_led (rgb_led_driver);
 modules::Pushbutton_Controller button (400 /*ms*/, 600 /*ms*/, 200 /*ms*/);
-hardware::Flash_STM32L4 database;
+hardware::Flash_STM32L4 flash;
 hardware::Battery_CAN can;
 
-Bootloader_Node bootloader_node(database, status_led, button, can);
+Bootloader_Node bootloader_node(flash, status_led, button, can);
 
 /**
  * @brief Initializes hal and ChibiOS
@@ -60,19 +64,61 @@ void __late_init() {
     chSysInit();
 }
 
+extern "C" {
+
+/* Reset_Handler
+    This function is used to initialize the application in a "near-reset" state
+    to minimize undesired interactions between the bootloader and application
+    code. We check whether or not to jump to the application before ChibiOS
+    initialization so that all clocks and peripherals are in their reset state.
+
+    To jump to application, the bootloader should set the "jumptoApplication"
+    flag to true and trigger a reset with NVIC_SystemReset(). 
+*/
+void Reset_Handler(void){
+    if(shouldJumpToApplication()){
+        uint32_t sp, pc;
+        uint32_t reg = 0;
+        
+        //Read the stack pointer and reset handler addresses
+        uint32_t addr = appDataStartAddress();
+        memcpy(&sp, (uint32_t*)addr, 4);
+        memcpy(&pc, (uint32_t*)(addr + 4), 4);
+    
+        // Do the actual jump to application!
+        // Set main stack pointer, program counter
+        asm __volatile__(
+            "msr     MSP, %0 \r\n"
+            // Switch to the main stack, turn off FPU state storing
+            "msr     CONTROL, %1 \r\n"
+            "isb \r\n"
+            // Go!
+            "bx      %2 \r\n" : : "r" (sp), "r" (reg), "r" (pc)
+        );
+    } else {
+        //Run normal bootloader reset handler
+        asm __volatile__(
+            "b    _crt0_entry"
+        );
+    }
+}
+}
+
 /*
  * Application entry point.
  */
 int main(void) {
-
-    // if(!power_ctrl.wakeFromStandby()){
-    //     power_ctrl.enterStop2();
-    // } else {
-    //     power_ctrl.clearStandby();
-    // }
-
     rgb_led_driver.setColor(255,0,0);
     status_led.teal().fade();
+
+    bool application_valid = false;
+    flash.get(hardware::FlashDatabaseKey::APPLICATION_VALID, application_valid);
+
+    //Stay in the bootloader if the application tells us to or if the button is held down
+    bool stay_in_bootloader = shouldStayInBootloader();
+    if(palReadLine(LINE_PB_WKUP)){
+        stay_in_bootloader = true;
+    }
 
     //temporary
     palWriteLine(LINE_DSG_EN, true);
@@ -87,5 +133,11 @@ int main(void) {
         status_led.update();
 
         chThdSleepMilliseconds(1);
+        
+        if(!stay_in_bootloader && application_valid){
+            //Signal to the bootloader to jump to app on reset, and reset
+            setJumpToApplication(true);
+            NVIC_SystemReset();
+        }
     }
 }

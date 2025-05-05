@@ -19,6 +19,7 @@ Bootloader_Node::Bootloader_Node(hardware::Flash_STM32L4& flash,
     
     initNodeID();
     has_key_ = flash_.get(hardware::FlashDatabaseKey::AES_KEY, aes_key_);
+    flash_.get(hardware::FlashDatabaseKey::APPLICATION_HASH, reference_md5);
 }
 
 void Bootloader_Node::initNodeID(){
@@ -68,6 +69,7 @@ void Bootloader_Node::recvd_ctrl_read_info(protocol::ctrl_read_info_msg& msg) {
     if(msg.read_elec_type()) can_driver_.sendMessage(protocol::ctrl_elec_type_msg(node_id_, ELECTRICAL_TYPE));
     if(msg.read_HW_type()) can_driver_.sendMessage(protocol::ctrl_hw_type_msg(node_id_, BOARD_TYPE));
     if(msg.read_FW_version()){
+        //split into smaller messages
         size_t size = strlen(FIRMWARE_REVISION);
         size_t msg_len = protocol::ctrl_fw_version_msg::MSG_LEN_BYTES;
         size_t ind = (size / msg_len) + 1;
@@ -75,6 +77,13 @@ void Bootloader_Node::recvd_ctrl_read_info(protocol::ctrl_read_info_msg& msg) {
             can_driver_.sendMessage(protocol::ctrl_fw_version_msg(node_id_, i, FIRMWARE_REVISION + (i*msg_len)));
     }
     if(msg.read_FW_mode()) can_driver_.sendMessage(protocol::ctrl_fw_mode_msg(node_id_, protocol::ctrl_fw_mode_msg::FW_MODE_BOOT));
+    if(msg.read_APP_FW_hash()){
+        //split into smaller messages
+        uint8_t msg_len = protocol::ctrl_fw_version_msg::MSG_LEN_BYTES;
+        uint8_t N_PACKETS = Hash::MD5_SUM_LEN / msg_len;
+        for(size_t i = 0; i < N_PACKETS; i++)
+            can_driver_.sendMessage(protocol::ctrl_app_fw_hash_msg(node_id_, i, reference_md5 + (i*msg_len)));
+    }
 }
 
 void Bootloader_Node::recvd_ctrl_set_stay_in_boot(ctrl_set_stay_in_boot_msg& msg) {
@@ -354,6 +363,11 @@ void Bootloader_Node::recvd_boot_write_end(protocol::boot_write_end_msg& msg) {
             //Erase the application
             flash_.erase(hardware::Flash_STM32L4::Partition::APPLICATION);
             flash_.put(hardware::FlashDatabaseKey::APPLICATION_VALID, false);
+
+            //Zero out temporary variable
+            for (size_t i = 0; i < Hash::MD5_SUM_LEN; ++i) {
+                reference_md5[i] = 0;
+            }
         }
     }
 

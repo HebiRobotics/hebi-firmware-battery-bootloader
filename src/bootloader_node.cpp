@@ -3,6 +3,7 @@
 #include <string.h>
 
 extern "C" {
+#include "boot_ctrl.h"
 #include <mbedtls/build_info.h>
 }
 
@@ -73,7 +74,23 @@ void Bootloader_Node::recvd_ctrl_read_info(protocol::ctrl_read_info_msg& msg) {
         for(size_t i = 0; i < ind; i++)
             can_driver_.sendMessage(protocol::ctrl_fw_version_msg(node_id_, i, FIRMWARE_REVISION + (i*msg_len)));
     }
-    if(msg.read_FW_mode()) can_driver_.sendMessage(protocol::ctrl_fw_mode_msg(node_id_, true));
+    if(msg.read_FW_mode()) can_driver_.sendMessage(protocol::ctrl_fw_mode_msg(node_id_, protocol::ctrl_fw_mode_msg::FW_MODE_BOOT));
+}
+
+void Bootloader_Node::recvd_ctrl_set_stay_in_boot(ctrl_set_stay_in_boot_msg& msg) {
+    if(msg.EID.node_id != node_id_) return;
+
+    setStayInBootloader(msg.stay_in_bootloader());
+}
+
+void Bootloader_Node::recvd_ctrl_reset(protocol::ctrl_reset_msg& msg) {
+    if(msg.EID.node_id != node_id_) return;
+
+    NVIC_SystemReset();
+}
+
+void Bootloader_Node::recvd_ctrl_boot(protocol::ctrl_boot_msg& msg) {
+    boot_requested_ = true;
 }
 
 void Bootloader_Node::recvd_boot_set_key(protocol::boot_set_key_msg& msg) { 

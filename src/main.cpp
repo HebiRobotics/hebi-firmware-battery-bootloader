@@ -19,9 +19,9 @@ extern "C" {
 #include <hal.h>
 #include <cstring>
 
-void __late_init();
-
 #include "boot_ctrl.h"
+
+void __late_init();
 }
 
 #include "LED_Controller.h"
@@ -77,6 +77,8 @@ extern "C" {
 */
 void Reset_Handler(void){
     if(shouldJumpToApplication()){
+        setJumpToApplication(false); //Clear on read
+
         uint32_t sp, pc;
         uint32_t reg = 0;
         
@@ -114,8 +116,12 @@ int main(void) {
     bool application_valid = false;
     flash.get(hardware::FlashDatabaseKey::APPLICATION_VALID, application_valid);
 
-    //Stay in the bootloader if the application tells us to or if the button is held down
+    //Stay in the bootloader if the application tells us to
     bool stay_in_bootloader = shouldStayInBootloader();
+    if(shouldStayInBootloader()) //Clear on read
+        setStayInBootloader(false);
+
+    //Stay in bootloader if the button is held down
     if(palReadLine(LINE_PB_WKUP)){
         stay_in_bootloader = true;
     }
@@ -132,12 +138,14 @@ int main(void) {
 
         status_led.update();
 
-        chThdSleepMilliseconds(1);
-        
-        if(!stay_in_bootloader && application_valid){
-            //Signal to the bootloader to jump to app on reset, and reset
-            setJumpToApplication(true);
-            NVIC_SystemReset();
+        if(application_valid){
+            if(!stay_in_bootloader || bootloader_node.bootRequested()){
+                //Signal to the bootloader to jump to app on reset, and reset
+                setJumpToApplication(true);
+                NVIC_SystemReset();
+            }
         }
+
+        chThdSleepMilliseconds(1);
     }
 }

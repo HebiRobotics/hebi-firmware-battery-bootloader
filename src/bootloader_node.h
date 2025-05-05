@@ -41,11 +41,18 @@ public:
         return node_id_;
     }
 
+    bool bootRequested() {
+        return boot_requested_;
+    }
+
 protected:
     void initNodeID();
 
     void recvd_ctrl_poll_node_id(protocol::ctrl_poll_node_id_msg& msg) override;
     void recvd_ctrl_read_info(protocol::ctrl_read_info_msg& msg) override;
+    void recvd_ctrl_set_stay_in_boot(protocol::ctrl_set_stay_in_boot_msg& msg) override;
+    void recvd_ctrl_reset(protocol::ctrl_reset_msg& msg) override;
+    void recvd_ctrl_boot(protocol::ctrl_boot_msg& msg) override;
 
     void recvd_boot_set_key(protocol::boot_set_key_msg& msg) override;
     void recvd_boot_partition_length(protocol::boot_partition_length_msg& msg) override;
@@ -55,7 +62,7 @@ protected:
     void recvd_boot_write_end(protocol::boot_write_end_msg& msg) override;
     void recvd_boot_erase(protocol::boot_erase_msg& msg) override;
 
-
+    bool boot_requested_ {false};
     bool node_id_valid_ {false};
     uint8_t node_id_ { protocol::DEFAULT_NODE_ID };
 

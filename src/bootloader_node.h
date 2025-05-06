@@ -9,9 +9,11 @@
 #include "Flash_STM32L4.h"
 #include "LED_Controller.h"
 #include "Pushbutton_Controller.h"
-#include "hash.h"
+#include "Info_Handler.h"
 
 #include "nodes/base_node.h"
+#include "nodes/StringMsgHelper.h"
+#include "hash.h"
 
 extern "C" {
 #include <mbedtls/build_info.h>
@@ -21,7 +23,7 @@ extern "C" {
 
 namespace hebi::firmware {
 
-class Bootloader_Node : public protocol::Base_Node {
+class Bootloader_Node : public modules::Info_Handler {
 public:
     Bootloader_Node(
         hardware::Flash_STM32L4& flash,
@@ -49,7 +51,7 @@ protected:
     void initNodeID();
 
     void recvd_ctrl_poll_node_id(protocol::ctrl_poll_node_id_msg& msg) override;
-    void recvd_ctrl_read_info(protocol::ctrl_read_info_msg& msg) override;
+    // void recvd_ctrl_read_info(protocol::ctrl_read_info_msg& msg) override;
     void recvd_ctrl_set_stay_in_boot(protocol::ctrl_set_stay_in_boot_msg& msg) override;
     void recvd_ctrl_reset(protocol::ctrl_reset_msg& msg) override;
     void recvd_ctrl_boot(protocol::ctrl_boot_msg& msg) override;
@@ -61,14 +63,14 @@ protected:
     void recvd_boot_write_data(protocol::boot_write_data_msg& msg) override;
     void recvd_boot_write_end(protocol::boot_write_end_msg& msg) override;
     void recvd_boot_erase(protocol::boot_erase_msg& msg) override;
-    void recvd_boot_set_serial_num(protocol::boot_set_serial_num_msg& msg) override;
+    // void recvd_boot_set_serial_num(protocol::boot_set_serial_num_msg& msg) override;
 
     bool boot_requested_ {false};
     bool node_id_valid_ {false};
-    uint8_t node_id_ { protocol::DEFAULT_NODE_ID };
+    // uint8_t node_id_ { protocol::DEFAULT_NODE_ID };
 
     static const uint8_t SERIAL_NUM_LEN = 16;
-    uint8_t serial_number_[SERIAL_NUM_LEN];
+    util::StringMsgHelper<SERIAL_NUM_LEN> serial_number_handler_;
 
     static const uint16_t MAX_TRANSACTION_LEN = 2048;
     bool read_active_ {false};

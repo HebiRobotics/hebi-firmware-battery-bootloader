@@ -9,28 +9,17 @@ extern "C" {
 
 using namespace hebi::firmware;
 using namespace hebi::firmware::protocol;
+using namespace hebi::firmware::hardware;
 
 Bootloader_Node::Bootloader_Node(hardware::Flash_STM32L4& flash, 
     modules::LED_Controller& led, 
     modules::Pushbutton_Controller& button_ctrl,
     protocol::CAN_driver& can_driver) :
+    Info_Handler(flash, can_driver),
     flash_(flash), led_(led), button_(button_ctrl),
     can_driver_(can_driver) {
     
-    initNodeID();
     has_key_ = flash_.get(hardware::FlashDatabaseKey::AES_KEY, aes_key_);
-    flash_.get(hardware::FlashDatabaseKey::APPLICATION_HASH, reference_md5);
-    flash_.get(hardware::FlashDatabaseKey::SERIAL_NUMBER, serial_number_);
-}
-
-void Bootloader_Node::initNodeID(){
-    node_id_valid_ = flash_.get(hardware::FlashDatabaseKey::NODE_ID, node_id_);
-
-    //temporary...
-    if(!node_id_valid_){
-        node_id_ = 0x01;
-        flash_.put(hardware::FlashDatabaseKey::NODE_ID, node_id_);
-    }
 }
 
 void Bootloader_Node::update() {
@@ -49,11 +38,6 @@ void Bootloader_Node::update() {
         }
 
     }
-
-    // can_driver_.sendMessage(protocol::ctrl_poll_node_id_msg(node_id_));
-    // can_driver_.sendMessage(protocol::ctrl_poll_node_id_msg(node_id_));
-    // can_driver_.sendMessage(protocol::ctrl_poll_node_id_msg(node_id_));
-    // can_driver_.sendMessage(protocol::ctrl_poll_node_id_msg(node_id_));
 }
 
 void Bootloader_Node::recvd_ctrl_poll_node_id(protocol::ctrl_poll_node_id_msg& msg){
@@ -61,38 +45,6 @@ void Bootloader_Node::recvd_ctrl_poll_node_id(protocol::ctrl_poll_node_id_msg& m
     if(msg.EID.node_id != 0x00 || node_id_ == protocol::DEFAULT_NODE_ID) return; 
 
     can_driver_.sendMessage(protocol::ctrl_poll_node_id_msg(node_id_));
-}
-
-void Bootloader_Node::recvd_ctrl_read_info(protocol::ctrl_read_info_msg& msg) { 
-    if(msg.EID.node_id != node_id_) return;
-
-    if(msg.read_GUID()) can_driver_.sendMessage(protocol::ctrl_guid_msg(node_id_, 0, *(uint64_t*)UID_BASE));
-    if(msg.read_elec_type()) can_driver_.sendMessage(protocol::ctrl_elec_type_msg(node_id_, ELECTRICAL_TYPE));
-    if(msg.read_HW_type()) can_driver_.sendMessage(protocol::ctrl_hw_type_msg(node_id_, BOARD_TYPE));
-    if(msg.read_FW_version()){
-        //split into smaller messages
-        size_t size = strlen(FIRMWARE_REVISION);
-        size_t msg_len = protocol::ctrl_fw_version_msg::MSG_LEN_BYTES;
-        size_t ind = (size / msg_len) + 1;
-        for(size_t i = 0; i < ind; i++)
-            can_driver_.sendMessage(protocol::ctrl_fw_version_msg(node_id_, i, FIRMWARE_REVISION + (i*msg_len)));
-    }
-    if(msg.read_FW_mode()) can_driver_.sendMessage(protocol::ctrl_fw_mode_msg(node_id_, protocol::ctrl_fw_mode_msg::FW_MODE_BOOT));
-    if(msg.read_APP_FW_hash()){
-        //split into smaller messages
-        uint8_t msg_len = protocol::ctrl_app_fw_hash_msg::MSG_LEN_BYTES;
-        uint8_t N_PACKETS = Hash::MD5_SUM_LEN / msg_len;
-        for(size_t i = 0; i < N_PACKETS; i++)
-            can_driver_.sendMessage(protocol::ctrl_app_fw_hash_msg(node_id_, i, reference_md5 + (i*msg_len)));
-    }
-    if(msg.read_serial_number()){
-        //split into smaller messages
-        size_t size = strlen((const char*) serial_number_);
-        uint8_t msg_len = protocol::ctrl_serial_num_msg::MSG_LEN_BYTES;
-        uint8_t N_PACKETS = (size / msg_len) + 1;
-        for(size_t i = 0; i < N_PACKETS; i++)
-            can_driver_.sendMessage(protocol::ctrl_serial_num_msg(node_id_, i, serial_number_ + (i*msg_len)));
-    }
 }
 
 void Bootloader_Node::recvd_ctrl_set_stay_in_boot(ctrl_set_stay_in_boot_msg& msg) {
@@ -108,6 +60,7 @@ void Bootloader_Node::recvd_ctrl_reset(protocol::ctrl_reset_msg& msg) {
 }
 
 void Bootloader_Node::recvd_ctrl_boot(protocol::ctrl_boot_msg& msg) {
+    (void) msg;
     boot_requested_ = true;
 }
 
@@ -218,19 +171,6 @@ void Bootloader_Node::recvd_boot_write(protocol::boot_write_msg& msg) {
         //Reset state
         write_current_offset_ = 0;
 
-        // //Erase application on first message
-        // auto result = flash_.erase(static_cast<hardware::Flash_STM32L4::Partition>(msg.partition()));
-        
-        // //Check for erase error
-        // if(result != hardware::Flash_STM32L4::Status::COMPLETE){
-        //     can_driver_.sendMessage(boot_write_end_msg(
-        //         node_id_, msg.length(), 
-        //         msg.sequence_number(), msg.partition(), 
-        //         status_t::ERROR
-        //     ));
-        //     return;
-        // }
-
         // Re-initialize contexts.
         iv_is_set = false;
         md5_is_set = false;
@@ -329,7 +269,6 @@ void Bootloader_Node::recvd_boot_write_end(protocol::boot_write_end_msg& msg) {
                         decrypted);
 
                 mbedtls_md5_update(&md5_ctx, decrypted, AES_BLOCK_SIZE);
-                // success &= loader.writeCode(decrypted, AES_BLOCK_SIZE);
                 success &= (flash_.program(partition, write_current_offset_, decrypted, AES_BLOCK_SIZE) 
                     == hardware::Flash_STM32L4::Status::COMPLETE);
                 
@@ -337,13 +276,6 @@ void Bootloader_Node::recvd_boot_write_end(protocol::boot_write_end_msg& msg) {
             }
         }
     }
-
-    //Valid write at this point
-    // auto result = flash_.program(partition, write_current_offset_, write_buffer_, msg.length());
-
-    //Flash program was successful, increment offset
-    // write_current_offset_ += msg.length();
-    // write_active_ = false;
 
     //If this is the final packet, finalize everything
     if(msg.status() == status_t::FINAL_PACKET){
@@ -353,7 +285,9 @@ void Bootloader_Node::recvd_boot_write_end(protocol::boot_write_end_msg& msg) {
         mbedtls_md5_finish(&md5_ctx, computed_md5);
 
         //Save Hash
-        flash_.put(hardware::FlashDatabaseKey::APPLICATION_HASH, computed_md5);
+        Hash::getStringHash(computed_md5, app_fw_hash_handler_.buffer_);
+        app_fw_hash_handler_.load(true);
+        flash_.put(hardware::FlashDatabaseKey::APPLICATION_HASH, app_fw_hash_handler_.buffer_);
 
         // Check the output md5s.
         bool is_equal = true;
@@ -377,6 +311,12 @@ void Bootloader_Node::recvd_boot_write_end(protocol::boot_write_end_msg& msg) {
             for (size_t i = 0; i < Hash::MD5_SUM_LEN; ++i) {
                 reference_md5[i] = 0;
             }
+        }
+
+        //Send the updated hash to the host
+        if(is_equal && app_fw_hash_handler_.hasString()){
+            can_.sendString(node_id_, MessageType::INFO_APP_FW_HASH, 
+                app_fw_hash_handler_.string(), app_fw_hash_handler_.stringLength());
         }
     }
 
@@ -460,21 +400,3 @@ void Bootloader_Node::recvd_boot_erase(protocol::boot_erase_msg& msg) {
         ));
     }
 }
-
-void Bootloader_Node::recvd_boot_set_serial_num(boot_set_serial_num_msg& msg){
-    if(msg.EID.node_id != node_id_) return;
-
-    uint8_t N_PACKETS = SERIAL_NUM_LEN / protocol::boot_set_serial_num_msg::MSG_LEN_BYTES;
-
-    if(msg.index() >= N_PACKETS) return;
-    
-    uint8_t offset = msg.index() * protocol::boot_set_serial_num_msg::MSG_LEN_BYTES;
-    for (uint8_t ind = 0; ind < SERIAL_NUM_LEN; ind++)
-        serial_number_[ind + offset] = msg.data8[ind];
-    
-    //Controller node should always send n = N_PACKETS!
-    if(msg.index() == (N_PACKETS - 1)){
-        flash_.put(hardware::FlashDatabaseKey::SERIAL_NUMBER, serial_number_);
-    }
-}
-

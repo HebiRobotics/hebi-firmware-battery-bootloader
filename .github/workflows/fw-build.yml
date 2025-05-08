@@ -9,7 +9,7 @@ on:
 
 jobs:
   get_fw_version:
-    uses: HEBIRobotics/hebi-firmware-battery-common/.github/workflows/fw-get-info.yml@main
+    uses: HEBIRobotics/hebi-firmware-battery-common/.github/workflows/fw-get-info.yml@COMMON_WORKFLOW_v1.0.0
 
   build_fw_matrix:
     needs: get_fw_version
@@ -17,7 +17,7 @@ jobs:
       matrix:
         fw: 
         - {target: 'B', filename: 'bib_boot_b.bin'}
-    uses: HEBIRobotics/hebi-firmware-battery-common/.github/workflows/fw-build-common.yml@main
+    uses: HEBIRobotics/hebi-firmware-battery-common/.github/workflows/fw-build-common.yml@COMMON_WORKFLOW_v1.0.0
     with:
       filename: ${{ matrix.fw.filename }}
       target: ${{ matrix.fw.target }}
@@ -34,7 +34,7 @@ jobs:
     needs:
     - build_fw_matrix
     - get_fw_version
-    uses: HEBIRobotics/hebi-firmware-battery-common/.github/workflows/fw-upload-common.yml@main
+    uses: HEBIRobotics/hebi-firmware-battery-common/.github/workflows/fw-upload-common.yml@COMMON_WORKFLOW_v1.0.0
     with:
       build_label: ${{ needs.get_fw_version.outputs.build_label }}
       upload_channel: ${{ needs.get_fw_version.outputs.upload_channel }}

@@ -1,0 +1,18 @@
+name: Publish release
+
+on:
+  workflow_dispatch:
+    inputs:
+      # TODO: ideally parse from source tag instead!
+      release:
+        type: string
+        description: release version to publish
+        default: 0.0.0
+
+jobs:
+  upload_fw:
+    uses: HEBIRobotics/hebi-firmware-common/.github/workflows/fw-push-release-to-stable.yml@WORKFLOW_1.1.0
+    with:
+      release_number: ${{ github.event.inputs.release }}
+      repo: "hebi-firmware-battery"
+    secrets: inherit

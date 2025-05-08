@@ -1,7 +1,8 @@
-PWD = $(shell pwd)
-
-COMMON = $(PWD)/common
 FIRMWARE_MODE = BOOTLOADER
+
+B: all
+
+COMMON = ./common
 include $(COMMON)/common.mk
 
 include $(BOARDDIR)/HEBI_PCBA_2121_01/board.mk
@@ -24,7 +25,7 @@ DDEFS := -DSTM32_EXTI_REQUIRED \
 UDEFS :=
 
 
-ELECTRICAL_TYPE := BIB_B
+ELECTRICAL_TYPE := BIB_BOOT_B
 BOARD_TYPE := BIB
 
 DDEFS += $(COMMON_DDEFS)

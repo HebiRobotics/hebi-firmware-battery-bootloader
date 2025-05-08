@@ -1,0 +1,41 @@
+name: Firmware Build IO Micro
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    tags: ['RELEASE_*.*.*']
+    branches: [main]
+
+jobs:
+  get_fw_version:
+    uses: HEBIRobotics/hebi-firmware-battery-common/.github/workflows/fw-get-info.yml@main
+
+  build_fw_matrix:
+    needs: get_fw_version
+    strategy:
+      matrix:
+        fw: 
+        - {target: 'B', filename: 'bib_boot_b.bin'}
+    uses: HEBIRobotics/hebi-firmware-battery-common/.github/workflows/fw-build-common.yml@main
+    with:
+      filename: ${{ matrix.fw.filename }}
+      target: ${{ matrix.fw.target }}
+      build_label: ${{ needs.get_fw_version.outputs.build_label }}
+      upload_scripts: ${{ matrix.fw.target == 'B' }} # Need to do this for an arbitary one of these!
+    secrets: inherit
+
+  # TODO: unit_tests
+  # TODO: functional_tests
+  # TODO: static_analysis
+  # TODO: style_checks
+
+  upload_fw:
+    needs:
+    - build_fw_matrix
+    - get_fw_version
+    uses: HEBIRobotics/hebi-firmware-battery-common/.github/workflows/fw-upload-common.yml@main
+    with:
+      build_label: ${{ needs.get_fw_version.outputs.build_label }}
+      upload_channel: ${{ needs.get_fw_version.outputs.upload_channel }}
+    secrets: inherit
